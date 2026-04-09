@@ -214,6 +214,57 @@ function renderResults() {
     </div>`;
   }).join("");
 
+  // ─── Focus Areas Analysis ───
+  const domainStatsData = getDomainStats();
+  const weakDomains = domainStatsData.filter(d => d.pct < 70).sort((a, b) => a.pct - b.pct);
+  const strongDomains = domainStatsData.filter(d => d.pct >= 70).sort((a, b) => b.pct - a.pct);
+
+  const DOMAIN_TIPS = {
+    "Security Principles": "Review CIA Triad application in scenarios, risk management lifecycle (identify → assess → treat → monitor), and differentiate between policies, standards, procedures, and guidelines.",
+    "Business Continuity, DR & IR": "Focus on RTO vs RPO vs MTD distinctions, incident response phases in order (Prep → Detect → Contain → Eradicate → Recover → Lessons), and recovery site types (hot/warm/cold).",
+    "Access Controls": "Master the differences between MAC/DAC/RBAC/ABAC models, understand authentication factors (know/have/are), and practice scenarios on least privilege, separation of duties, and privilege creep.",
+    "Network Security": "Study OSI layers and which devices operate at each, understand IDS vs IPS and signature vs anomaly detection, and review common attack types (MitM, replay, evil twin, DDoS).",
+    "Security Operations": "Focus on SIEM purpose and log management, change management processes, data classification levels, and the difference between vulnerability assessments and penetration testing."
+  };
+
+  let focusHtml = "";
+  if (weakDomains.length > 0) {
+    const weakCards = weakDomains.map(d => `<div class="focus-card focus-weak">
+      <div class="focus-card-header">
+        <span class="focus-domain" style="color:${DOMAIN_COLORS[d.domain]}">⚠️ ${d.domain}</span>
+        <span class="focus-score">${d.pct}%</span>
+      </div>
+      <div class="focus-tip">${DOMAIN_TIPS[d.domain]}</div>
+    </div>`).join("");
+
+    const strongCards = strongDomains.length > 0 ? `<div class="focus-strong-row">
+      ${strongDomains.map(d => `<div class="focus-strong-item">
+        <span style="color:var(--green)">✓</span>
+        <span>${d.domain}</span>
+        <span class="focus-strong-pct">${d.pct}%</span>
+      </div>`).join("")}
+    </div>` : "";
+
+    focusHtml = `<div class="focus-panel">
+      <div class="focus-title">📋 Focus Areas — Where to Study Harder</div>
+      <div class="focus-subtitle">Domains below 70% need more attention before the real exam</div>
+      ${weakCards}
+      ${strongCards ? `<div class="focus-strong-title">✅ Strong Domains</div>${strongCards}` : ""}
+    </div>`;
+  } else {
+    focusHtml = `<div class="focus-panel focus-all-good">
+      <div class="focus-title">🎉 Outstanding Performance!</div>
+      <div class="focus-subtitle">You scored 70%+ in all domains. You're well-prepared for the ISC2 CC exam.</div>
+      <div class="focus-strong-row">
+        ${strongDomains.map(d => `<div class="focus-strong-item">
+          <span style="color:var(--green)">✓</span>
+          <span>${d.domain}</span>
+          <span class="focus-strong-pct">${d.pct}%</span>
+        </div>`).join("")}
+      </div>
+    </div>`;
+  }
+
   app.innerHTML = `<div class="results">
     <div class="results-header">
       <div class="results-icon">${passed ? "✓" : "✗"}</div>
@@ -227,6 +278,7 @@ function renderResults() {
       <div class="results-domain-title">Domain Breakdown</div>
       ${statsHtml}
     </div>
+    ${focusHtml}
     <div class="btn-row">
       <button class="btn-outline" onclick="startReview()">Review Answers</button>
       <button class="btn-primary" onclick="retakeExam()">New Exam</button>
