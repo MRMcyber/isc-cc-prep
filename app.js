@@ -1,0 +1,211 @@
+// ─── State ───
+let started = false, current = 0, selected = null, answered = {};
+let showExplanation = false, finished = false, timeLeft = 7200;
+let reviewMode = false, reviewIdx = 0, timerInterval = null;
+
+const app = document.getElementById("app");
+
+function formatTime(s) {
+  const m = Math.floor(s / 60);
+  const sec = s % 60;
+  return `${m}:${sec.toString().padStart(2, "0")}`;
+}
+
+function getScore() {
+  return Object.entries(answered).filter(([idx, ans]) => questions[parseInt(idx)].answer === ans).length;
+}
+
+function getDomainStats() {
+  return Object.keys(DOMAIN_COLORS).map(domain => {
+    const qs = questions.map((q, i) => ({ ...q, idx: i })).filter(q => q.domain === domain);
+    const correct = qs.filter(q => answered[q.idx] === q.answer).length;
+    return { domain, total: qs.length, correct, pct: qs.length ? Math.round((correct / qs.length) * 100) : 0 };
+  });
+}
+
+function startTimer() {
+  if (timerInterval) clearInterval(timerInterval);
+  timerInterval = setInterval(() => {
+    timeLeft--;
+    if (timeLeft <= 0) { clearInterval(timerInterval); finished = true; render(); return; }
+    const el = document.getElementById("timer");
+    if (el) { el.textContent = formatTime(timeLeft); el.className = "exam-timer" + (timeLeft < 600 ? " warn" : ""); }
+  }, 1000);
+}
+
+// ─── Render ───
+function render() {
+  if (!started) return renderLanding();
+  if (finished && !reviewMode) return renderResults();
+  if (reviewMode) return renderReview();
+  renderExam();
+}
+
+function renderLanding() {
+  const domainRows = Object.entries(DOMAIN_COLORS).map(([domain, color]) => {
+    const count = questions.filter(q => q.domain === domain).length;
+    const pct = Math.round((count / 100) * 100);
+    return `<div class="domain-row">
+      <div class="domain-row-top"><span class="domain-row-name">${domain}</span><span class="domain-row-count">${count}Q (${pct}%)</span></div>
+      <div class="domain-bar-bg"><div class="domain-bar-fill" style="width:${pct}%;background:${color}"></div></div>
+    </div>`;
+  }).join("");
+
+  app.innerHTML = `<div class="landing">
+    <div class="landing-header">
+      <div class="landing-badge">ISC2</div>
+      <h1 class="landing-title">Certified in Cybersecurity (CC)</h1>
+      <p class="landing-sub">Full Practice Exam — 100 Questions</p>
+    </div>
+    <div class="stats-grid">
+      ${[["100","Questions"],["2 hrs","Time Limit"],["700/1000","Passing Score"],["5","Domains"]].map(([v,l])=>`<div class="stat-card"><div class="stat-val">${v}</div><div class="stat-label">${l}</div></div>`).join("")}
+    </div>
+    <div class="domain-panel">
+      <div class="domain-panel-title">Domain Coverage</div>
+      ${domainRows}
+    </div>
+    <p class="landing-note">Questions are scenario-based, just like the real CC exam. No back navigation once you confirm an answer.</p>
+    <button class="btn-start" onclick="startExam()">Start Exam</button>
+  </div>`;
+}
+
+function renderExam() {
+  const q = questions[current];
+  const isAnswered = answered[current] !== undefined;
+  const isCorrect = answered[current] === q.answer;
+  const progress = Math.round((Object.keys(answered).length / questions.length) * 100);
+
+  let optionsHtml = q.options.map((opt, i) => {
+    let cls = "option";
+    let tag = "";
+    if (!isAnswered && selected === i) cls += " selected";
+    if (isAnswered) {
+      cls += " answered";
+      if (i === q.answer) { cls += " correct"; tag = `<span class="option-tag" style="color:var(--green)">✓ Correct</span>`; }
+      else if (i === answered[current] && !isCorrect) { cls += " incorrect"; tag = `<span class="option-tag" style="color:var(--red)">✗ Your answer</span>`; }
+    }
+    return `<div class="${cls}" onclick="selectOption(${i})">
+      <span class="option-letter">${String.fromCharCode(65 + i)}.</span>
+      <span style="flex:1">${opt}</span>${tag}
+    </div>`;
+  }).join("");
+
+  let explanationHtml = "";
+  if (showExplanation) {
+    const label = isCorrect
+      ? `<strong class="correct-label">Correct! </strong>`
+      : `<strong class="incorrect-label">Incorrect. </strong>`;
+    explanationHtml = `<div class="explanation">${label}${q.explanation}</div>`;
+  }
+
+  let btnHtml = !isAnswered
+    ? `<button class="btn-confirm${selected !== null ? ' active' : ''}" onclick="confirmAnswer()" ${selected === null ? 'disabled' : ''}>Confirm Answer</button>`
+    : `<button class="btn-next" onclick="nextQuestion()">${current + 1 >= questions.length ? "See Results →" : "Next Question →"}</button>`;
+
+  app.innerHTML = `<div class="exam">
+    <div class="exam-top">
+      <span class="exam-counter">Q ${current + 1} / ${questions.length}</span>
+      <span id="timer" class="exam-timer${timeLeft < 600 ? ' warn' : ''}">${formatTime(timeLeft)}</span>
+    </div>
+    <div class="progress-bar"><div class="progress-fill" style="width:${progress}%"></div></div>
+    <div class="domain-tag" style="background:${DOMAIN_BG[q.domain]};color:${DOMAIN_COLORS[q.domain]}">${q.domain}</div>
+    <p class="question-text">${q.question}</p>
+    <div class="options">${optionsHtml}</div>
+    ${explanationHtml}
+    ${btnHtml}
+  </div>`;
+}
+
+function renderResults() {
+  if (timerInterval) clearInterval(timerInterval);
+  const score = getScore();
+  const percent = Math.round((score / questions.length) * 100);
+  const scaledScore = Math.round((score / questions.length) * 1000);
+  const passed = scaledScore >= 700;
+
+  const statsHtml = getDomainStats().map(({ domain, total, correct, pct }) => {
+    const barColor = pct >= 70 ? "var(--green)" : "var(--red)";
+    return `<div class="results-domain-row">
+      <div class="results-domain-info">
+        <div class="results-domain-name">${domain}</div>
+        <div class="domain-bar-bg"><div class="domain-bar-fill" style="width:${pct}%;background:${barColor}"></div></div>
+      </div>
+      <div class="results-domain-stat">${correct}/${total} (${pct}%)</div>
+    </div>`;
+  }).join("");
+
+  app.innerHTML = `<div class="results">
+    <div class="results-header">
+      <div class="results-icon">${passed ? "✓" : "✗"}</div>
+      <div class="results-status ${passed ? 'pass' : 'fail'}">${passed ? "PASS" : "FAIL"}</div>
+      <div class="results-score-line">Scaled Score: ${scaledScore}/1000 (passing: 700)</div>
+    </div>
+    <div class="results-grid">
+      ${[["Score",`${score}/100`],["Percent",`${percent}%`],["Scaled",`${scaledScore}/1000`]].map(([l,v])=>`<div class="stat-card"><div class="stat-val">${v}</div><div class="stat-label">${l}</div></div>`).join("")}
+    </div>
+    <div class="results-domain-panel">
+      <div class="results-domain-title">Domain Breakdown</div>
+      ${statsHtml}
+    </div>
+    <div class="btn-row">
+      <button class="btn-outline" onclick="startReview()">Review Answers</button>
+      <button class="btn-primary" onclick="retakeExam()">Retake Exam</button>
+    </div>
+  </div>`;
+}
+
+function renderReview() {
+  const rq = questions[reviewIdx];
+  const userAns = answered[reviewIdx];
+  const rCorrect = userAns === rq.answer;
+
+  let optionsHtml = rq.options.map((opt, i) => {
+    let cls = "option answered";
+    let tag = "";
+    if (i === rq.answer) { cls += " correct"; tag = `<span class="option-tag" style="color:var(--green)">✓ Correct</span>`; }
+    else if (i === userAns && !rCorrect) { cls += " incorrect"; tag = `<span class="option-tag" style="color:var(--red)">✗ Your answer</span>`; }
+    return `<div class="${cls}">
+      <span class="option-letter">${String.fromCharCode(65 + i)}.</span>
+      <span style="flex:1">${opt}</span>${tag}
+    </div>`;
+  }).join("");
+
+  app.innerHTML = `<div class="review">
+    <div class="review-top">
+      <span class="review-counter">Review: Q${reviewIdx + 1} of ${questions.length}</span>
+      <button class="btn-back" onclick="exitReview()">Back to results</button>
+    </div>
+    <div class="domain-tag" style="background:${DOMAIN_BG[rq.domain]};color:${DOMAIN_COLORS[rq.domain]}">${rq.domain}</div>
+    <p class="question-text">${rq.question}</p>
+    <div class="options">${optionsHtml}</div>
+    <div class="explanation"><strong>Explanation: </strong>${rq.explanation}</div>
+    <div class="btn-row">
+      <button class="btn-outline${reviewIdx === 0 ? ' btn-disabled' : ''}" onclick="prevReview()" ${reviewIdx === 0 ? 'disabled' : ''}>← Previous</button>
+      <button class="btn-primary${reviewIdx === questions.length - 1 ? ' btn-disabled' : ''}" onclick="nextReview()" ${reviewIdx === questions.length - 1 ? 'disabled' : ''}>Next →</button>
+    </div>
+  </div>`;
+}
+
+// ─── Actions ───
+function startExam() { started = true; startTimer(); render(); }
+function selectOption(i) { if (answered[current] !== undefined) return; selected = i; render(); }
+function confirmAnswer() { if (selected === null) return; answered[current] = selected; showExplanation = true; render(); }
+function nextQuestion() {
+  showExplanation = false; selected = null;
+  if (current + 1 >= questions.length) { finished = true; } else { current++; }
+  render();
+}
+function startReview() { reviewMode = true; reviewIdx = 0; render(); }
+function exitReview() { reviewMode = false; render(); }
+function prevReview() { if (reviewIdx > 0) { reviewIdx--; render(); } }
+function nextReview() { if (reviewIdx < questions.length - 1) { reviewIdx++; render(); } }
+function retakeExam() {
+  started = false; current = 0; selected = null; answered = {};
+  showExplanation = false; finished = false; timeLeft = 7200;
+  reviewMode = false; reviewIdx = 0;
+  if (timerInterval) clearInterval(timerInterval);
+  render();
+}
+
+// ─── Init ───
+render();
