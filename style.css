@@ -212,8 +212,8 @@ body {
   border: 1px solid var(--border); background: var(--bg-card);
   text-align: center; transition: all 0.2s;
 }
-.mode-option:hover { border-color: var(--border-light); background: var(--bg-hover); }
-.mode-option.mode-active { border-color: var(--accent); background: rgba(124,107,245,0.1); box-shadow: 0 0 20px var(--accent-glow); }
+@media (hover: hover) { .mode-option:hover:not(.mode-active) { border-color: var(--border-light); background: var(--bg-hover); } }
+.mode-option.mode-active { border-color: var(--accent); background: rgba(124,107,245,0.15); box-shadow: 0 0 24px var(--accent-glow); }
 .mode-icon { font-size: 24px; margin-bottom: 6px; }
 .mode-title { font-size: 14px; font-weight: 600; color: var(--text-primary); margin-bottom: 4px; }
 .mode-desc { font-size: 11px; color: var(--text-secondary); line-height: 1.4; }
