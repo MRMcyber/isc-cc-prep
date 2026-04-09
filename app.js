@@ -7,10 +7,11 @@ let started = false, current = 0, selected = null, answered = {};
 let showExplanation = false, finished = false, timeLeft = 7200;
 let reviewMode = false, reviewIdx = 0, timerInterval = null;
 let studyMode = false;
+let examSize = 100; // 50 or 100
 let examQuestions = []; // Dynamically generated per session
 
 const app = document.getElementById("app");
-const TOTAL_EXAM = 100;
+
 
 // ─── Shuffle Engine ───
 function shuffleArray(arr) {
@@ -31,11 +32,14 @@ function generateExam() {
   });
 
   // Select proportional questions per domain
+  // Scale domain distribution based on exam size
+  const scale = examSize / 100;
   let selected = [];
   Object.entries(DOMAIN_DISTRIBUTION).forEach(([domain, count]) => {
     const pool = byDomain[domain] || [];
     const shuffled = shuffleArray(pool);
-    selected.push(...shuffled.slice(0, Math.min(count, shuffled.length)));
+    const target = Math.round(count * scale);
+    selected.push(...shuffled.slice(0, Math.min(target, shuffled.length)));
   });
 
   // Shuffle the final selection
@@ -108,19 +112,32 @@ function renderLanding() {
       <p class="landing-sub">Dynamic Practice Exam — ${totalQ} Question Pool</p>
     </div>
     <div class="stats-grid">
-      ${[["100","Questions/Exam"],[`${totalQ}+`,"Question Pool"],["700/1000","Passing Score"],["5","Domains"]].map(([v,l])=>`<div class="stat-card"><div class="stat-val">${v}</div><div class="stat-label">${l}</div></div>`).join("")}
+      ${[[`${examSize}`,"Questions/Exam"],[`${totalQ}+`,"Question Pool"],["700/1000","Passing Score"],["5","Domains"]].map(([v,l])=>`<div class="stat-card"><div class="stat-val">${v}</div><div class="stat-label">${l}</div></div>`).join("")}
     </div>
 
     <div class="mode-toggle">
       <div class="mode-option ${!studyMode ? 'mode-active' : ''}" onclick="setMode(false)">
         <div class="mode-icon">⏱️</div>
         <div class="mode-title">Exam Mode</div>
-        <div class="mode-desc">100 questions • 2 hr timer • Real exam simulation</div>
+        <div class="mode-desc">${examSize} questions • ${examSize === 100 ? '2 hr' : '1 hr'} timer • Real exam simulation</div>
       </div>
       <div class="mode-option ${studyMode ? 'mode-active' : ''}" onclick="setMode(true)">
         <div class="mode-icon">📖</div>
         <div class="mode-title">Study Mode</div>
-        <div class="mode-desc">100 questions • No timer • Learn at your pace</div>
+        <div class="mode-desc">${examSize} questions • No timer • Learn at your pace</div>
+      </div>
+    </div>
+
+    <div class="mode-toggle">
+      <div class="mode-option ${examSize === 50 ? 'mode-active' : ''}" onclick="setSize(50)">
+        <div class="mode-icon">⚡</div>
+        <div class="mode-title">50 Questions</div>
+        <div class="mode-desc">Quick practice • ~1 hour</div>
+      </div>
+      <div class="mode-option ${examSize === 100 ? 'mode-active' : ''}" onclick="setSize(100)">
+        <div class="mode-icon">📝</div>
+        <div class="mode-title">100 Questions</div>
+        <div class="mode-desc">Full exam simulation • ~2 hours</div>
       </div>
     </div>
 
@@ -322,11 +339,12 @@ function renderReview() {
 
 // ─── Actions ───
 function setMode(isStudy) { studyMode = isStudy; render(); }
+function setSize(n) { examSize = n; render(); }
 
 function startExam() {
   examQuestions = generateExam();
   started = true;
-  timeLeft = 7200;
+  timeLeft = examSize === 100 ? 7200 : 3600;
   current = 0; selected = null; answered = {};
   showExplanation = false; finished = false;
   reviewMode = false; reviewIdx = 0;
