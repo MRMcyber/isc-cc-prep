@@ -6,8 +6,8 @@
 let started = false, current = 0, selected = null, answered = {};
 let showExplanation = false, finished = false, timeLeft = 7200;
 let reviewMode = false, reviewIdx = 0, timerInterval = null;
-let studyMode = false;
-let examSize = 100; // 50 or 100
+let studyMode = false, modeChosen = false;
+let examSize = 100, sizeChosen = false;
 let examQuestions = []; // Dynamically generated per session
 
 const app = document.getElementById("app");
@@ -116,12 +116,12 @@ function renderLanding() {
     </div>
 
     <div class="mode-toggle">
-      <div class="mode-option ${!studyMode ? 'mode-active' : ''}" onclick="setMode(false)">
+      <div class="mode-option ${modeChosen && !studyMode ? 'mode-active' : ''}" onclick="setMode(false)">
         <div class="mode-icon">⏱️</div>
         <div class="mode-title">Exam Mode</div>
         <div class="mode-desc">${examSize} questions • ${examSize === 100 ? '2 hr' : '1 hr'} timer • Real exam simulation</div>
       </div>
-      <div class="mode-option ${studyMode ? 'mode-active' : ''}" onclick="setMode(true)">
+      <div class="mode-option ${modeChosen && studyMode ? 'mode-active' : ''}" onclick="setMode(true)">
         <div class="mode-icon">📖</div>
         <div class="mode-title">Study Mode</div>
         <div class="mode-desc">${examSize} questions • No timer • Learn at your pace</div>
@@ -129,12 +129,12 @@ function renderLanding() {
     </div>
 
     <div class="mode-toggle">
-      <div class="mode-option ${examSize === 50 ? 'mode-active' : ''}" onclick="setSize(50)">
+      <div class="mode-option ${sizeChosen && examSize === 50 ? 'mode-active' : ''}" onclick="setSize(50)">
         <div class="mode-icon">⚡</div>
         <div class="mode-title">50 Questions</div>
         <div class="mode-desc">Quick practice • ~1 hour</div>
       </div>
-      <div class="mode-option ${examSize === 100 ? 'mode-active' : ''}" onclick="setSize(100)">
+      <div class="mode-option ${sizeChosen && examSize === 100 ? 'mode-active' : ''}" onclick="setSize(100)">
         <div class="mode-icon">📝</div>
         <div class="mode-title">100 Questions</div>
         <div class="mode-desc">Full exam simulation • ~2 hours</div>
@@ -338,8 +338,8 @@ function renderReview() {
 }
 
 // ─── Actions ───
-function setMode(isStudy) { studyMode = isStudy; render(); }
-function setSize(n) { examSize = n; render(); }
+function setMode(isStudy) { studyMode = isStudy; modeChosen = true; render(); }
+function setSize(n) { examSize = n; sizeChosen = true; render(); }
 
 function startExam() {
   examQuestions = generateExam();
